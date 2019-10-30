@@ -14,6 +14,7 @@ use std::result;
 pub use directory_entry::{
     DirectoryEntry, ISODirectory, ISODirectoryIterator, ISOFile, ISOFileReader,
 };
+pub use parse::{DirectoryEntryHeader, FileFlags};
 pub use error::ISOError;
 pub(crate) use fileref::FileRef;
 pub use fileref::ISO9660Reader;

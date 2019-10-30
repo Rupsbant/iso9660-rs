@@ -5,5 +5,5 @@ mod date_time;
 mod directory_entry;
 mod volume_descriptor;
 
-pub(crate) use self::directory_entry::{DirectoryEntryHeader, FileFlags};
+pub use self::directory_entry::{DirectoryEntryHeader, FileFlags};
 pub(crate) use self::volume_descriptor::VolumeDescriptor;
