@@ -4,6 +4,7 @@ use time::Tm;
 
 use super::both_endian::{both_endian16, both_endian32};
 use nom::number::complete::le_u8;
+use nom::dbg;
 use super::date_time::date_time;
 use nom::multi::length_data;
 use crate::Result;
@@ -39,7 +40,7 @@ impl DirectoryEntryHeader {
     }
 }
 
-named!(pub directory_entry<(DirectoryEntryHeader, String)>, do_parse!(
+named!(pub directory_entry<(DirectoryEntryHeader, String)>, dbg!(do_parse!(
     length:                           le_u8         >>
     extended_attribute_record_length: le_u8         >>
     extent_loc:                       both_endian32 >>
@@ -63,5 +64,5 @@ named!(pub directory_entry<(DirectoryEntryHeader, String)>, do_parse!(
         file_unit_size,
         interleave_gap_size,
         volume_sequence_number,
-    }, identifier)
+    }, identifier))
 ));

@@ -7,7 +7,7 @@ use nom::bytes::complete::tag;
 use nom::combinator::map;
 
 use super::both_endian::{both_endian16, both_endian32};
-use super::date_time::date_time_ascii;
+use super::date_time::{date_time_ascii, date_time_ascii_opt};
 use super::directory_entry::{directory_entry, DirectoryEntryHeader};
 use crate::ISOError;
 
@@ -38,8 +38,8 @@ pub(crate) enum VolumeDescriptor {
 
         creation_time: Tm,
         modification_time: Tm,
-        expiration_time: Tm,
-        effective_time: Tm,
+        expiration_time: Option<Tm>,
+        effective_time: Option<Tm>,
 
         file_structure_version: u8,
     },
@@ -85,6 +85,11 @@ fn volume_descriptor(i: &[u8]) -> IResult<&[u8], Option<VolumeDescriptor>> {
     }
 }
 
+fn here(i: &[u8]) -> IResult<&[u8], ()> {
+    std::dbg!(i.len());
+    Ok((i,()))
+}
+
 named!(primary_descriptor<VolumeDescriptor>, do_parse!(
     take!(1) >> // padding
     system_identifier: call!(take_string_trim, 32) >>
@@ -114,8 +119,8 @@ named!(primary_descriptor<VolumeDescriptor>, do_parse!(
 
     creation_time: date_time_ascii >>
     modification_time: date_time_ascii >>
-    expiration_time: date_time_ascii >>
-    effective_time: date_time_ascii >>
+    expiration_time: date_time_ascii_opt >>
+    effective_time: date_time_ascii_opt >>
 
     file_structure_version: le_u8 >>
 

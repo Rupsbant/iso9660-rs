@@ -5,7 +5,7 @@ use std::{fmt, mem, str};
 use time::Tm;
 
 use crate::parse::{DirectoryEntryHeader, FileFlags};
-use crate::{DirectoryEntry, FileRef, ISO9660Reader, ISOError, Result};
+use crate::{DirectoryEntry, FileRef, ISO9660Reader, ISOError, Recovered, Result};
 
 pub struct ISODirectory<T: ISO9660Reader> {
     pub(crate) header: DirectoryEntryHeader,
@@ -61,7 +61,7 @@ impl<T: ISO9660Reader> ISODirectory<T> {
         block: &mut [u8; 2048],
         buf_block_num: &mut Option<u64>,
         offset: u64,
-    ) -> Result<(DirectoryEntry<T>, Option<u64>)> {
+    ) -> Result<Recovered<(DirectoryEntry<T>, Option<u64>)>> {
         let mut block_num = offset / 2048;
         let mut block_pos = (offset % 2048) as usize;
 
@@ -80,7 +80,7 @@ impl<T: ISO9660Reader> ISODirectory<T> {
         let (header, identifier) = DirectoryEntryHeader::parse(&block[block_pos..])?;
         block_pos += header.length as usize;
 
-        let entry = DirectoryEntry::new(header, identifier, self.file.clone())?;
+        let Recovered(entry, error) = DirectoryEntry::new(header, identifier, self.file.clone());
 
         // All bytes after the last directory entry are zero.
         if block_pos >= (2048 - 33) || block[block_pos] == 0 {
@@ -94,7 +94,7 @@ impl<T: ISO9660Reader> ISODirectory<T> {
             None
         };
 
-        Ok((entry, next_offset))
+        Ok(Recovered((entry, next_offset), error))
     }
 
     pub fn contents(&self) -> ISODirectoryIterator<T> {
@@ -112,7 +112,7 @@ impl<T: ISO9660Reader> ISODirectory<T> {
 
     pub fn find(&self, identifier: &str) -> Result<Option<DirectoryEntry<T>>> {
         for entry in self.contents() {
-            let entry = entry?;
+            let Recovered(entry, _) = entry?;
             if entry
                 .header()
                 .file_flags
@@ -137,19 +137,19 @@ pub struct ISODirectoryIterator<'a, T: ISO9660Reader> {
 }
 
 impl<'a, T: ISO9660Reader> Iterator for ISODirectoryIterator<'a, T> {
-    type Item = Result<DirectoryEntry<T>>;
+    type Item = Result<Recovered<DirectoryEntry<T>>>;
 
-    fn next(&mut self) -> Option<Result<DirectoryEntry<T>>> {
+    fn next(&mut self) -> Option<Result<Recovered<DirectoryEntry<T>>>> {
         let offset = self.next_offset?;
         match self
             .directory
             .read_entry_at(&mut self.block, &mut self.block_num, offset)
         {
-            Ok((entry, next_offset)) => {
+            Ok(Recovered((entry, next_offset), error)) => {
                 self.next_offset = next_offset;
-                Some(Ok(entry))
+                Some(Ok(Recovered(entry, error)))
             }
-            Err(err) => Some(Err(err)),
+            Err(e) => Some(Err(e)),
         }
     }
 }

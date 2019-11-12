@@ -4,7 +4,7 @@ pub use self::isodirectory::{ISODirectory, ISODirectoryIterator};
 pub use self::isofile::{ISOFile, ISOFileReader};
 
 use crate::parse::{DirectoryEntryHeader, FileFlags};
-use crate::{FileRef, ISO9660Reader, Result};
+use crate::{FileRef, ISO9660Reader, Result, Recovered};
 
 mod isodirectory;
 mod isofile;
@@ -20,15 +20,12 @@ impl<T: ISO9660Reader> DirectoryEntry<T> {
         header: DirectoryEntryHeader,
         identifier: String,
         file: FileRef<T>,
-    ) -> Result<Self> {
+    ) -> Recovered<Self> {
         if header.file_flags.contains(FileFlags::DIRECTORY) {
-            Ok(DirectoryEntry::Directory(ISODirectory::new(
-                header, identifier, file,
-            )))
+            let dir = ISODirectory::new(header, identifier, file);
+            Recovered::ok(DirectoryEntry::Directory(dir))
         } else {
-            Ok(DirectoryEntry::File(ISOFile::new(
-                header, identifier, file,
-            )?))
+            ISOFile::new(header, identifier, file).map(DirectoryEntry::File)
         }
     }
 

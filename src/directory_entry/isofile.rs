@@ -9,7 +9,7 @@ use std::str::FromStr;
 use time::Tm;
 
 use super::DirectoryEntryHeader;
-use crate::{FileRef, ISO9660Reader, ISOError, Result};
+use crate::{FileRef, ISO9660Reader, ISOError, Result, Recovered};
 
 #[derive(Clone)]
 pub struct ISOFile<T: ISO9660Reader> {
@@ -35,26 +35,32 @@ impl<T: ISO9660Reader> ISOFile<T> {
         header: DirectoryEntryHeader,
         mut identifier: String,
         file: FileRef<T>,
-    ) -> Result<ISOFile<T>> {
+    ) -> Recovered<ISOFile<T>> {
         // Files (not directories) in ISO 9660 have a version number, which is
         // provided at the end of the identifier, seperated by ';'
-        let error = ISOError::InvalidFs("File indentifier missing ';'");
-        let idx = identifier.rfind(';').ok_or(error)?;
-
-        let version = u16::from_str(&identifier[idx + 1..])?;
-        identifier.truncate(idx);
+        let (version, error) = match identifier.rfind(';') {
+            None => (0, Err(ISOError::InvalidFs("File indentifier missing ';'"))),
+            Some(idx) => {
+                let version = u16::from_str(&identifier[idx + 1..]);
+                identifier.truncate(idx);
+                match version {
+                    Ok(version) => (version, Ok(())),
+                    Err(err) => (0, Err(err.into())),
+                }
+            }
+        };
 
         // Files without an extension have a '.' at the end
         if identifier.ends_with('.') {
             identifier.pop();
         }
 
-        Ok(ISOFile {
+        Recovered(ISOFile {
             header,
             identifier,
             version,
             file,
-        })
+        }, error)
     }
 
     pub fn size(&self) -> u32 {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (MIT OR Apache-2.0)
 
-#![feature(read_initializer, specialization)]
+#![feature(read_initializer, specialization, try_trait)]
 
 extern crate time;
 #[macro_use]
@@ -14,13 +14,31 @@ use std::result;
 pub use directory_entry::{
     DirectoryEntry, ISODirectory, ISODirectoryIterator, ISOFile, ISOFileReader,
 };
-pub use parse::{DirectoryEntryHeader, FileFlags};
 pub use error::ISOError;
 pub(crate) use fileref::FileRef;
 pub use fileref::ISO9660Reader;
 use parse::VolumeDescriptor;
+pub use parse::{DirectoryEntryHeader, FileFlags};
 
 pub type Result<T> = result::Result<T, ISOError>;
+#[derive(Debug)]
+pub struct Recovered<T>(pub T, pub Result<()>);
+
+impl<T> Recovered<T> {
+    pub fn recover_with(error: Result<T>, with: T) -> Recovered<T> {
+        match error {
+            Ok(t) => Recovered(t, Ok(())),
+            Err(err) => Recovered(with, Err(err)),
+        }
+    }
+    pub fn map<U>(self, f: impl Fn(T) -> U) -> Recovered<U> {
+        let Recovered(t, error) = self;
+        Recovered(f(t), error)
+    }
+    pub fn ok(t: T) -> Self {
+        Recovered(t, Ok(()))
+    }
+}
 
 mod directory_entry;
 mod error;
@@ -47,8 +65,8 @@ impl<T: ISO9660Reader> ISO9660<T> {
             if count != 2048 {
                 return Err(ISOError::ReadSize(2048, count));
             }
-
-            match VolumeDescriptor::parse(&buf)? {
+            let p = VolumeDescriptor::parse(&buf);
+            match p? {
                 Some(VolumeDescriptor::Primary {
                     logical_block_size,
                     root_directory_entry,
@@ -70,7 +88,6 @@ impl<T: ISO9660Reader> ISO9660<T> {
 
             lba += 1;
         }
-
         let file = FileRef::new(reader);
         let file2 = file.clone();
 
