@@ -29,6 +29,8 @@ named!(pub date_time<Tm>, do_parse!(
 ));
 
 named_args!(ascii_i32(n: usize)<i32>, flat_map!(take(n), parse_to!(i32)));
+named!(pub date_time_ascii_opt<Option<Tm>>, alt!(map!(date_time_ascii, Some) | value!(None, take!(17))));
+
 named!(pub date_time_ascii<Tm>, do_parse!(
     tm_year:     call!(ascii_i32, 4) >>
     tm_mon:      call!(ascii_i32, 2) >>
